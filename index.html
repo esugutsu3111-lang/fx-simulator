@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FX・需給体験シミュレーター PRO</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body id="topAnchor">
+
+<header>
+  <div class="header-inner">
+    <div class="brand" id="brandTitle" onclick="handleBrandTap()">
+      <span>📈 FX TERMINAL</span>
+      <span class="mode-pill" id="headerModeBadge">ドル円集中モード</span>
+    </div>
+    <div class="conn-controls">
+      <span class="status-pill"><span class="dot" id="connDot"></span><span id="connText">接続中...</span></span>
+      <div class="room-wrap">
+        <span>合言葉:</span>
+        <input type="text" id="roomInput" value="CLASS-1" maxlength="16">
+        <button class="btn-top" onclick="changeRoom()">入室</button>
+      </div>
+      <button class="btn-stealth" id="teacherToggleBtn" onclick="openTeacherAuth()" title="管理">⚙</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Economic Indicator Countdown Banner -->
+  <div class="countdown-banner" id="countdownBanner">
+    <div>
+      <div style="font-size:0.7rem; font-weight:800; color:#fecdd3;">⏱ 重要経済指標 発表カウントダウン</div>
+      <div style="font-size:0.92rem; font-weight:900; color:#fff;" id="cdEventTitle">🇺🇸 米国雇用統計 発表まで</div>
+    </div>
+    <div class="cd-timer num" id="cdTimerVal">あと 15 秒</div>
+  </div>
+
+  <!-- News Banner -->
+  <div class="news-bar calm" id="newsBar">
+    <span class="news-tag" id="newsTag">MARKET</span>
+    <span class="news-msg" id="newsMsg">現在、市場は穏やかに推移しています。売値(BID)と買値(ASK)の差（スプレッド）を意識して取引しましょう。</span>
+  </div>
+
+  <!-- Account Summary Bar -->
+  <div class="acct-strip">
+    <div class="s-card">
+      <div class="s-label">トレーダー名（順位表に表示）</div>
+      <input type="text" class="name-input" id="playerNameInput" maxlength="14" placeholder="出席番号＋名前" onchange="savePlayerName()">
+    </div>
+    <div class="s-card">
+      <div class="s-label">有効証拠金（総資産）</div>
+      <div class="s-val num" id="totalEquityVal">1,000,000 円</div>
+    </div>
+    <div class="s-card">
+      <div class="s-label">余力（手持ち現金）</div>
+      <div class="s-val num" id="cashVal">1,000,000 円</div>
+    </div>
+    <div class="s-card">
+      <div class="s-label">トータル損益（初期100万比）</div>
+      <div class="s-val num flat" id="totalPnlVal">±0 円</div>
+    </div>
+    <div class="s-card">
+      <div class="s-label">クラス順位</div>
+      <div class="s-val num gold" id="myRankVal">- 位 / - 人</div>
+    </div>
+  </div>
+
+  <!-- Main Trading Area -->
+  <div class="terminal-grid">
+    <!-- Left Column: FX 2-Way Quote, Chart, Order Book -->
+    <div class="card">
+      <div class="pair-tabs single" id="pairTabs"></div>
+
+      <div class="fx-quote-header">
+        <div>
+          <div class="fx-pair-title" id="heroTitle">🇺🇸 米ドル / 円 (USD/JPY)</div>
+          <div style="font-size:0.68rem; color:var(--muted);" id="heroDesc">基準: 150.00円 ｜ 買いはASK（高値）、売りはBID（安値）で約定します</div>
+        </div>
+        <span class="yen-pill yen-even" id="yenBadge">基準レートと同じ</span>
+      </div>
+
+      <!-- Real FX 2-Way Speed Quote Panel (BID / SPREAD / ASK) -->
+      <div class="fx-quote-board">
+        <div class="quote-side quote-bid" onclick="placeOrder('SELL')">
+          <div class="q-top"><span>売 BID</span><span>円高で利益</span></div>
+          <div class="q-price num" id="bidPriceDisp">149.<span class="big-dec">95</span></div>
+          <div class="q-sub">タップで売り注文</div>
+        </div>
+
+        <div class="spread-center">
+          <span class="sp-lbl">SPREAD</span>
+          <span class="sp-val num" id="spreadDisp">0.10</span>
+          <span class="sp-sen num" id="spreadSenDisp">(10銭)</span>
+        </div>
+
+        <div class="quote-side quote-ask" onclick="placeOrder('BUY')">
+          <div class="q-top"><span>買 ASK</span><span>円安で利益</span></div>
+          <div class="q-price num" id="askPriceDisp">150.<span class="big-dec">05</span></div>
+          <div class="q-sub">タップで買い注文</div>
+        </div>
+      </div>
+
+      <!-- Central Bank Defense Line Indicator -->
+      <div class="defense-banner" id="defenseBanner">
+        <span id="defenseText">🏦 中央銀行 防衛ライン発動中: 155.00円（円安阻止オペ）</span>
+        <span class="num" id="defenseBudgetText">防衛余力: 無制限</span>
+      </div>
+
+      <!-- Supply & Demand Bar -->
+      <div class="sd-box">
+        <div class="sd-labels">
+          <span class="up" id="buyRatioLabel">買い需要 50%</span>
+          <span style="color:var(--muted);">需給バランス</span>
+          <span class="down" id="sellRatioLabel">売り供給 50%</span>
+        </div>
+        <div class="sd-track">
+          <div class="sd-buy" id="sdBuyBar" style="width:50%;"></div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-box">
+        <canvas id="rateChart"></canvas>
+      </div>
+
+      <!-- Live Order Book (Shown in Mode C: Real Matching Mode) -->
+      <div class="book-card" id="orderBookCard" style="display:none;">
+        <div class="book-title">
+          <span>📖 リアルタイム注文板（誰がいくらで待っているか）</span>
+          <span style="color:var(--muted); font-weight:600;">※相手がいないと約定しません</span>
+        </div>
+        <div class="book-grid">
+          <div>
+            <div class="book-col-head b-ask-h">売り注文（安い順に約定）</div>
+            <div id="bookAsksList"></div>
+          </div>
+          <div>
+            <div class="book-col-head b-bid-h">買い注文（高い順に約定）</div>
+            <div id="bookBidsList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Order Controls & Positions -->
+    <div class="card">
+      <div class="order-head">
+        <h3>⚡ 注文チケット</h3>
+        <span class="m-status m-open" id="marketStatusBadge">取引受付中 (OPEN)</span>
+      </div>
+
+      <!-- Bankruptcy Rescue Box -->
+      <div class="bankrupt-box" id="bankruptBox">
+        <div style="font-size:0.82rem; font-weight:900; color:#fecaca;">💀 資金が1万円未満になり破産しました！</div>
+        <button class="btn-revive" onclick="reviveFromBankruptcy()">💸 50,000円から再スタートする</button>
+      </div>
+
+      <div class="f-group">
+        <div class="f-label">
+          <span>証拠金（注文金額）</span>
+          <span id="tradePowerNote">取引規模: 10万円分</span>
+        </div>
+        <div class="grid-4" id="amtBtns">
+          <button class="sel-btn active" data-amt="100000" onclick="selectAmt(100000)">10万円</button>
+          <button class="sel-btn" data-amt="300000" onclick="selectAmt(300000)">30万円</button>
+          <button class="sel-btn" data-amt="500000" onclick="selectAmt(500000)">50万円</button>
+          <button class="sel-btn" data-amt="ALL" onclick="selectAmt('ALL')">全額</button>
+        </div>
+      </div>
+
+      <div class="f-group">
+        <div class="f-label">
+          <span>レバレッジ倍率</span>
+          <span id="levStatusNote">現在 1倍 まで許可</span>
+        </div>
+        <div class="grid-4" id="levBtns">
+          <button class="sel-btn active" data-lev="1" onclick="selectLev(1)">1倍</button>
+          <button class="sel-btn" data-lev="5" id="lev5Btn" onclick="selectLev(5)" disabled>5倍</button>
+          <button class="sel-btn" data-lev="10" id="lev10Btn" onclick="selectLev(10)" disabled>10倍</button>
+          <button class="sel-btn" data-lev="25" id="lev25Btn" onclick="selectLev(25)" disabled>25倍</button>
+        </div>
+      </div>
+
+      <!-- Mode C Limit Price Selector -->
+      <div class="limit-box" id="limitOrderBox">
+        <div class="f-label" style="color:#fbbf24; font-weight:800; margin-bottom:2px;">
+          <span>🎯 指値（希望売買価格）を指定</span>
+          <span style="cursor:pointer; text-decoration:underline;" onclick="syncLimitToMarket()">現在値に合わせる</span>
+        </div>
+        <div class="limit-row">
+          <button class="btn-step" onclick="stepLimitPrice(-0.5)">-0.5</button>
+          <button class="btn-step" onclick="stepLimitPrice(-0.1)">-0.1</button>
+          <input type="number" class="limit-input num" id="limitPriceInput" step="0.05" value="150.00">
+          <button class="btn-step" onclick="stepLimitPrice(0.1)">+0.1</button>
+          <button class="btn-step" onclick="stepLimitPrice(0.5)">+0.5</button>
+        </div>
+        <div style="font-size:0.66rem; color:var(--muted); margin-top:3px;">
+          ※買いは「指定価格以下で最も安い売り手」、売りは「指定価格以上で最も高い買い手」と約定します。
+        </div>
+      </div>
+
+      <div class="trade-btns">
+        <button class="btn-exec exec-sell" id="btnSell" onclick="placeOrder('SELL')">
+          <span class="ex-main">売り注文 (BID)</span>
+          <span class="ex-price num" id="btnSellSub">149.95 円</span>
+        </button>
+        <button class="btn-exec exec-buy" id="btnBuy" onclick="placeOrder('BUY')">
+          <span class="ex-main">買い注文 (ASK)</span>
+          <span class="ex-price num" id="btnBuySub">150.05 円</span>
+        </button>
+      </div>
+
+      <!-- Resting Orders in Mode C -->
+      <div class="pos-wrap" id="pendingWrap" style="display:none;">
+        <div class="pos-top">
+          <h4>⏳ 板に並べて待機中の注文 (<span id="pendingCount">0</span>件)</h4>
+        </div>
+        <div class="pos-list" id="pendingList"></div>
+      </div>
+
+      <!-- Active Positions -->
+      <div class="pos-wrap">
+        <div class="pos-top">
+          <h4>💼 保有ポジション (<span id="posCount">0</span>件)</h4>
+          <button class="btn-settle-all" id="btnSettleAll" onclick="settleAllPositions()" disabled>⚡ 一斉決済</button>
+        </div>
+        <div class="pos-list" id="posList">
+          <div style="font-size:0.74rem; color:var(--muted); text-align:center; padding:10px;">保有中のポジションはありません</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Grid: Class Leaderboard & Personal Trade Report Card -->
+  <div class="bottom-grid">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size:0.9rem;">🏆 クラスリアルタイム順位表（参加: <span id="onlineCount">1</span>人）</h3>
+        <span style="font-size:0.68rem; color:var(--muted);">全員の資産をリアルタイム表示</span>
+      </div>
+      <div class="board-table-wrap">
+        <table class="r-table">
+          <thead>
+            <tr>
+              <th style="width:52px;">順位</th>
+              <th>名前</th>
+              <th>総資産</th>
+              <th>損益</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size:0.9rem;">📊 あなたのトレード成績カルテ</h3>
+        <span style="font-size:0.68rem; color:var(--muted);">振り返り用自動集計</span>
+      </div>
+      <div class="karte-grid">
+        <div class="k-item">
+          <div class="k-lbl">決済完了回数 ／ 勝率</div>
+          <div class="k-val num" id="kWinRate">0回 ／ 0%</div>
+        </div>
+        <div class="k-item">
+          <div class="k-lbl">スプレッド支払コスト累計</div>
+          <div class="k-val num" style="color:#fbbf24;" id="kSpreadCost">0 円</div>
+        </div>
+        <div class="k-item">
+          <div class="k-lbl">1回の最大利益</div>
+          <div class="k-val num up" id="kMaxProfit">+0 円</div>
+        </div>
+        <div class="k-item">
+          <div class="k-lbl">1回の最大損失</div>
+          <div class="k-val num down" id="kMaxLoss">0 円</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Teacher Control Panel (Hidden from students until password 1234) -->
+  <div class="card teacher-panel" id="teacherPanel"></div>
+</div>
+
+<!-- Password Modal -->
+<div class="modal-backdrop" id="authModal">
+  <div class="modal-box">
+    <div class="modal-title">🔒 管理者認証</div>
+    <div class="modal-desc">パスコードを入力してください</div>
+    <input type="password" inputmode="numeric" class="modal-input" id="teacherPassInput" maxlength="12" placeholder="••••" onkeydown="if(event.key==='Enter')submitTeacherPass()">
+    <div class="modal-err" id="teacherPassErr"></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-cancel" onclick="closeAuthModal()">キャンセル</button>
+      <button class="modal-btn modal-ok" onclick="submitTeacherPass()">開く</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Confirmation Modal -->
+<div class="modal-backdrop" id="resetModal">
+  <div class="modal-box">
+    <div class="modal-title">🔄 相場・全員リセットの確認</div>
+    <div class="modal-desc">為替レート・注文板・全生徒の資産（100万円）と成績カルテを初期状態にリセットしますか？</div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-cancel" onclick="closeResetModal()">キャンセル</button>
+      <button class="modal-btn modal-danger" onclick="executeTeacherReset()">リセット実行</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
